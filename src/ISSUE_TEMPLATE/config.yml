@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 GitHub Discussions
+    url: https://github.com/Yuvraj198920/Bullet-Journal/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📚 Documentation
+    url: https://github.com/Yuvraj198920/Bullet-Journal/wiki
+    about: Read the documentation and guides
+  - name: 🔒 Security Vulnerability
+    url: https://github.com/Yuvraj198920/Bullet-Journal/security/advisories/new
+    about: Report a security vulnerability privately
