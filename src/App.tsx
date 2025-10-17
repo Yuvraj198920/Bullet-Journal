@@ -27,7 +27,18 @@ import {
   createHabit, 
   deleteHabit as deleteHabitDB, 
   toggleHabitCompletion as toggleHabitCompletionDB,
-  getAllUserHabitCompletions 
+  getAllUserHabitCompletions,
+  getUserEntries,
+  createEntry,
+  updateEntry,
+  deleteEntry,
+  getUserCollections,
+  createCollection,
+  deleteCollection,
+  createCollectionItem,
+  getAllUserCollectionItems,
+  toggleCollectionItem,
+  deleteCollectionItem
 } from "./utils/supabase/database";
 
 
@@ -124,7 +135,7 @@ export default function App() {
       const habitsData = await getUserHabits();
       const completionsData = await getAllUserHabitCompletions();
 
-      // Transform to app's format
+      // Transform habits to app's format
       const transformedHabits: Habit[] = habitsData.map((h) => ({
         id: h.id,
         name: h.name,
@@ -145,37 +156,52 @@ export default function App() {
 
       setHabits(transformedHabits);
 
-      // Still load entries and collections from localStorage (to be migrated later)
-      const savedEntries = localStorage.getItem(`bulletJournalEntries_${userId}`);
-      const savedCollections = localStorage.getItem(`bulletJournalCollections_${userId}`);
-      
-      if (savedEntries) {
-        setEntries(JSON.parse(savedEntries));
-      }
-      if (savedCollections) {
-        setCollections(JSON.parse(savedCollections));
-      }
+      // Load entries from database
+      const entriesData = await getUserEntries();
+      const transformedEntries: BulletEntryData[] = entriesData.map((e) => ({
+        id: e.id,
+        date: e.entry_date,
+        type: e.entry_type as EntryType,
+        content: e.content,
+        state: e.state as TaskState,
+        migrationCount: e.migration_count || undefined,
+        signifiers: e.signifiers as any || undefined,
+        eventState: e.event_state as any || undefined,
+        eventTime: e.event_time || undefined,
+        eventEndTime: e.event_end_time || undefined,
+        isAllDay: e.is_all_day || undefined,
+        eventCategory: e.event_category as EventCategory || undefined,
+        isRecurring: e.is_recurring || undefined,
+        recurringPattern: e.recurring_pattern || undefined,
+      }));
+
+      setEntries(transformedEntries);
+
+      // Load collections from database
+      const collectionsData = await getUserCollections();
+      const collectionItemsData = await getAllUserCollectionItems();
+
+      const transformedCollections: Collection[] = collectionsData.map((c) => ({
+        id: c.id,
+        title: c.title,
+        items: collectionItemsData
+          .filter((item) => item.collection_id === c.id)
+          .map((item) => ({
+            id: item.id,
+            text: item.text,
+            checked: item.checked,
+          })),
+      }));
+
+      setCollections(transformedCollections);
+
     } catch (error) {
       console.error("Error loading user data:", error);
       toast.error("Failed to load your data. Please refresh the page.");
     }
   };
 
-  // Save entries to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`bulletJournalEntries_${user.id}`, JSON.stringify(entries));
-    }
-  }, [entries, user]);
-
-  // Save collections to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`bulletJournalCollections_${user.id}`, JSON.stringify(collections));
-    }
-  }, [collections, user]);
-
-  // Habits are now saved to Supabase (no localStorage needed)
+  // All data now saved to Supabase (no localStorage needed)
 
   const handleSignIn = async (email: string, password: string) => {
     const result = await signIn(email, password);
@@ -205,16 +231,28 @@ export default function App() {
     await requestPasswordReset(email);
   };
 
-  const addEntry = (content: string, type: EntryType, date: Date) => {
-    const newEntry: BulletEntryData = {
-      id: crypto.randomUUID(),
-      date: date.toISOString(),
-      type,
-      content,
-      // Only tasks have state management, events and notes use "complete" as a neutral state
-      state: "incomplete",
-    };
-    setEntries([...entries, newEntry]);
+  const addEntry = async (content: string, type: EntryType, date: Date) => {
+    try {
+      const newEntry = await createEntry({
+        date: date.toISOString().split('T')[0],
+        type,
+        content,
+        state: "incomplete",
+      });
+
+      setEntries([...entries, {
+        id: newEntry.id,
+        date: newEntry.entry_date,
+        type: newEntry.entry_type as EntryType,
+        content: newEntry.content,
+        state: newEntry.state as any,
+      }]);
+
+      toast.success("Entry added successfully!");
+    } catch (error) {
+      console.error("Error adding entry:", error);
+      toast.error("Failed to add entry. Please try again.");
+    }
   };
 
   const addEvent = (
@@ -244,12 +282,25 @@ export default function App() {
     setEntries([...entries, newEntry]);
   };
 
-  const updateEntry = (id: string, updates: Partial<BulletEntryData>) => {
-    setEntries(entries.map((entry) => (entry.id === id ? { ...entry, ...updates } : entry)));
+  const updateEntryLocal = async (id: string, updates: Partial<BulletEntryData>) => {
+    try {
+      await updateEntry(id, updates as any);
+      setEntries(entries.map((entry) => (entry.id === id ? { ...entry, ...updates } : entry)));
+    } catch (error) {
+      console.error("Error updating entry:", error);
+      toast.error("Failed to update entry.");
+    }
   };
 
-  const deleteEntry = (id: string) => {
-    setEntries(entries.filter((entry) => entry.id !== id));
+  const deleteEntryLocal = async (id: string) => {
+    try {
+      await deleteEntry(id);
+      setEntries(entries.filter((entry) => entry.id !== id));
+      toast.success("Entry deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting entry:", error);
+      toast.error("Failed to delete entry.");
+    }
   };
 
   const getDailyEntries = () => {
@@ -296,59 +347,90 @@ export default function App() {
     // Optionally scroll to the collection
   };
 
-  // Collection handlers
-  const addCollection = (title: string) => {
-    const newCollection: Collection = {
-      id: crypto.randomUUID(),
-      title,
-      items: [],
-    };
-    setCollections([...collections, newCollection]);
+  // Collection handlers (now using Supabase)
+  const addCollectionLocal = async (title: string) => {
+    try {
+      const newCollection = await createCollection(title);
+      setCollections([...collections, {
+        id: newCollection.id,
+        title: newCollection.title,
+        items: [],
+      }]);
+      toast.success("Collection created successfully!");
+    } catch (error) {
+      console.error("Error creating collection:", error);
+      toast.error("Failed to create collection.");
+    }
   };
 
-  const deleteCollection = (id: string) => {
-    setCollections(collections.filter((c) => c.id !== id));
+  const deleteCollectionLocal = async (id: string) => {
+    try {
+      await deleteCollection(id);
+      setCollections(collections.filter((c) => c.id !== id));
+      toast.success("Collection deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting collection:", error);
+      toast.error("Failed to delete collection.");
+    }
   };
 
-  const addCollectionItem = (collectionId: string, text: string) => {
-    setCollections(
-      collections.map((c) =>
-        c.id === collectionId
-          ? {
-              ...c,
-              items: [
-                ...c.items,
-                { id: crypto.randomUUID(), text, checked: false },
-              ],
-            }
-          : c
-      )
-    );
+  const addCollectionItemLocal = async (collectionId: string, text: string) => {
+    try {
+      const newItem = await createCollectionItem(collectionId, text);
+      setCollections(
+        collections.map((c) =>
+          c.id === collectionId
+            ? {
+                ...c,
+                items: [
+                  ...c.items,
+                  { id: newItem.id, text: newItem.text, checked: newItem.checked },
+                ],
+              }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error("Error adding collection item:", error);
+      toast.error("Failed to add item.");
+    }
   };
 
-  const toggleCollectionItem = (collectionId: string, itemId: string) => {
-    setCollections(
-      collections.map((c) =>
-        c.id === collectionId
-          ? {
-              ...c,
-              items: c.items.map((item) =>
-                item.id === itemId ? { ...item, checked: !item.checked } : item
-              ),
-            }
-          : c
-      )
-    );
+  const toggleCollectionItemLocal = async (collectionId: string, itemId: string) => {
+    try {
+      const newCheckedState = await toggleCollectionItem(itemId);
+      setCollections(
+        collections.map((c) =>
+          c.id === collectionId
+            ? {
+                ...c,
+                items: c.items.map((item) =>
+                  item.id === itemId ? { ...item, checked: newCheckedState } : item
+                ),
+              }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error("Error toggling collection item:", error);
+      toast.error("Failed to update item.");
+    }
   };
 
-  const deleteCollectionItem = (collectionId: string, itemId: string) => {
-    setCollections(
-      collections.map((c) =>
-        c.id === collectionId
-          ? { ...c, items: c.items.filter((item) => item.id !== itemId) }
-          : c
-      )
-    );
+  const deleteCollectionItemLocal = async (collectionId: string, itemId: string) => {
+    try {
+      await deleteCollectionItem(itemId);
+      setCollections(
+        collections.map((c) =>
+          c.id === collectionId
+            ? { ...c, items: c.items.filter((item) => item.id !== itemId) }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error("Error deleting collection item:", error);
+      toast.error("Failed to delete item.");
+    }
   };
 
   // Habit handlers (now using Supabase)
@@ -591,8 +673,8 @@ export default function App() {
               onDateChange={setDailyDate}
               onAddEntry={addEntry}
               onAddEvent={addEvent}
-              onUpdateEntry={updateEntry}
-              onDeleteEntry={deleteEntry}
+              onUpdateEntry={updateEntryLocal}
+              onDeleteEntry={deleteEntryLocal}
             />
           </TabsContent>
 
@@ -603,8 +685,8 @@ export default function App() {
               onDateChange={setMonthlyDate}
               onAddEntry={addEntry}
               onDayClick={handleDayClickFromMonthly}
-              onUpdateEntry={updateEntry}
-              onDeleteEntry={deleteEntry}
+              onUpdateEntry={updateEntryLocal}
+              onDeleteEntry={deleteEntryLocal}
             />
           </TabsContent>
 
@@ -614,8 +696,8 @@ export default function App() {
               currentYear={futureYear}
               onYearChange={setFutureYear}
               onAddEntry={addEntry}
-              onUpdateEntry={updateEntry}
-              onDeleteEntry={deleteEntry}
+              onUpdateEntry={updateEntryLocal}
+              onDeleteEntry={deleteEntryLocal}
             />
           </TabsContent>
 
@@ -632,11 +714,11 @@ export default function App() {
           <TabsContent value="collections">
             <Collections
               collections={collections}
-              onAddCollection={addCollection}
-              onDeleteCollection={deleteCollection}
-              onAddItem={addCollectionItem}
-              onToggleItem={toggleCollectionItem}
-              onDeleteItem={deleteCollectionItem}
+              onAddCollection={addCollectionLocal}
+              onDeleteCollection={deleteCollectionLocal}
+              onAddItem={addCollectionItemLocal}
+              onToggleItem={toggleCollectionItemLocal}
+              onDeleteItem={deleteCollectionItemLocal}
             />
           </TabsContent>
 
