@@ -5,7 +5,7 @@ import { MonthlyLog } from "./components/MonthlyLog";
 import { FutureLog } from "./components/FutureLog";
 import { Collections, Collection } from "./components/Collections";
 import { IndexNavigation } from "./components/IndexNavigation";
-import { HabitsTracker, Habit } from "./components/HabitsTracker";
+import { HabitsTracker, Habit, HabitFrequency, HabitCategory } from "./components/HabitsTracker";
 import { BulletEntryData, EntryType, EventCategory } from "./components/BulletEntry";
 import { LoginForm } from "./components/auth/LoginForm";
 import { RegisterForm } from "./components/auth/RegisterForm";
@@ -22,6 +22,14 @@ import { usePullToRefresh } from "./hooks/usePullToRefresh";
 import { Sheet, SheetContent, SheetTrigger } from "./components/ui/sheet";
 import { toast } from "sonner";
 import { signIn, signUp, signOut, getSession, requestPasswordReset, onAuthStateChange, User } from "./lib/auth";
+import { 
+  getUserHabits, 
+  createHabit, 
+  deleteHabit as deleteHabitDB, 
+  toggleHabitCompletion as toggleHabitCompletionDB,
+  getAllUserHabitCompletions 
+} from "./utils/supabase/database";
+
 
 type AuthView = "login" | "register" | "reset";
 
@@ -109,20 +117,47 @@ export default function App() {
     };
   }, [user]);
 
-  // Load user data from localStorage
-  const loadUserData = (userId: string) => {
-    const savedEntries = localStorage.getItem(`bulletJournalEntries_${userId}`);
-    const savedCollections = localStorage.getItem(`bulletJournalCollections_${userId}`);
-    const savedHabits = localStorage.getItem(`bulletJournalHabits_${userId}`);
-    
-    if (savedEntries) {
-      setEntries(JSON.parse(savedEntries));
-    }
-    if (savedCollections) {
-      setCollections(JSON.parse(savedCollections));
-    }
-    if (savedHabits) {
-      setHabits(JSON.parse(savedHabits));
+  // Load user data from Supabase database
+  const loadUserData = async (userId: string) => {
+    try {
+      // Load habits from database
+      const habitsData = await getUserHabits();
+      const completionsData = await getAllUserHabitCompletions();
+
+      // Transform to app's format
+      const transformedHabits: Habit[] = habitsData.map((h) => ({
+        id: h.id,
+        name: h.name,
+        description: h.description || undefined,
+        frequency: h.frequency as HabitFrequency,
+        category: h.category as HabitCategory,
+        color: h.color,
+        createdAt: h.created_at,
+        targetDays: h.target_days || undefined,
+        icon: h.icon || undefined,
+        completions: completionsData
+          .filter((c) => c.habit_id === h.id)
+          .map((c) => ({
+            date: c.completion_date,
+            completed: c.completed,
+          })),
+      }));
+
+      setHabits(transformedHabits);
+
+      // Still load entries and collections from localStorage (to be migrated later)
+      const savedEntries = localStorage.getItem(`bulletJournalEntries_${userId}`);
+      const savedCollections = localStorage.getItem(`bulletJournalCollections_${userId}`);
+      
+      if (savedEntries) {
+        setEntries(JSON.parse(savedEntries));
+      }
+      if (savedCollections) {
+        setCollections(JSON.parse(savedCollections));
+      }
+    } catch (error) {
+      console.error("Error loading user data:", error);
+      toast.error("Failed to load your data. Please refresh the page.");
     }
   };
 
@@ -140,12 +175,7 @@ export default function App() {
     }
   }, [collections, user]);
 
-  // Save habits to localStorage
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`bulletJournalHabits_${user.id}`, JSON.stringify(habits));
-    }
-  }, [habits, user]);
+  // Habits are now saved to Supabase (no localStorage needed)
 
   const handleSignIn = async (email: string, password: string) => {
     const result = await signIn(email, password);
@@ -321,43 +351,84 @@ export default function App() {
     );
   };
 
-  // Habit handlers
-  const addHabit = (habitData: Omit<Habit, "id" | "createdAt" | "completions">) => {
-    const newHabit: Habit = {
-      ...habitData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-      completions: [],
-    };
-    setHabits([...habits, newHabit]);
+  // Habit handlers (now using Supabase)
+  const addHabit = async (habitData: Omit<Habit, "id" | "createdAt" | "completions">) => {
+    try {
+      const newHabit = await createHabit({
+        name: habitData.name,
+        description: habitData.description,
+        frequency: habitData.frequency,
+        category: habitData.category,
+        color: habitData.color,
+        targetDays: habitData.targetDays,
+        icon: habitData.icon,
+      });
+
+      // Add to local state with proper format
+      setHabits([
+        ...habits,
+        {
+          id: newHabit.id,
+          name: newHabit.name,
+          description: newHabit.description || undefined,
+          frequency: newHabit.frequency as HabitFrequency,
+          category: newHabit.category as HabitCategory,
+          color: newHabit.color,
+          createdAt: newHabit.created_at,
+          targetDays: newHabit.target_days || undefined,
+          icon: newHabit.icon || undefined,
+          completions: [],
+        },
+      ]);
+
+      toast.success("Habit created successfully!");
+    } catch (error) {
+      console.error("Error creating habit:", error);
+      toast.error("Failed to create habit. Please try again.");
+    }
   };
 
-  const deleteHabit = (id: string) => {
-    setHabits(habits.filter((h) => h.id !== id));
+  const deleteHabit = async (id: string) => {
+    try {
+      await deleteHabitDB(id);
+      setHabits(habits.filter((h) => h.id !== id));
+      toast.success("Habit deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting habit:", error);
+      toast.error("Failed to delete habit. Please try again.");
+    }
   };
 
-  const toggleHabitCompletion = (habitId: string, date: string) => {
-    setHabits(
-      habits.map((habit) => {
-        if (habit.id === habitId) {
-          const existingCompletion = habit.completions.find((c) => c.date === date);
-          if (existingCompletion) {
-            return {
-              ...habit,
-              completions: habit.completions.map((c) =>
-                c.date === date ? { ...c, completed: !c.completed } : c
-              ),
-            };
-          } else {
-            return {
-              ...habit,
-              completions: [...habit.completions, { date, completed: true }],
-            };
+  const toggleHabitCompletion = async (habitId: string, date: string) => {
+    try {
+      const newCompletedState = await toggleHabitCompletionDB(habitId, date);
+
+      // Update local state
+      setHabits(
+        habits.map((habit) => {
+          if (habit.id === habitId) {
+            const existingCompletion = habit.completions.find((c) => c.date === date);
+            if (existingCompletion) {
+              return {
+                ...habit,
+                completions: habit.completions.map((c) =>
+                  c.date === date ? { ...c, completed: newCompletedState } : c
+                ),
+              };
+            } else {
+              return {
+                ...habit,
+                completions: [...habit.completions, { date, completed: newCompletedState }],
+              };
+            }
           }
-        }
-        return habit;
-      })
-    );
+          return habit;
+        })
+      );
+    } catch (error) {
+      console.error("Error toggling habit completion:", error);
+      toast.error("Failed to update habit. Please try again.");
+    }
   };
 
   // Import data from backup
