@@ -105,4 +105,4 @@ jobs:
       continue-on-error: true
 
     - name: Check for outdated dependencies
-      run: npm outdated || exit 0
+      run: npm outdated || true
