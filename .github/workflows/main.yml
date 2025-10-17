@@ -26,11 +26,9 @@ jobs:
 
     - name: Run ESLint
       run: npm run lint
-      continue-on-error: true
 
     - name: Run TypeScript type check
       run: npm run type-check
-      continue-on-error: true
 
   build:
     name: Build Application
@@ -60,7 +58,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: dist
-        path: dist/
+        path: build/
         retention-days: 7
 
   test:
@@ -83,7 +81,6 @@ jobs:
 
     - name: Run tests
       run: npm test
-      continue-on-error: true
       # Note: Add actual tests in package.json
 
   security-scan:
@@ -108,5 +105,4 @@ jobs:
       continue-on-error: true
 
     - name: Check for outdated dependencies
-      run: npm outdated
-      continue-on-error: true
+      run: npm outdated || true
