@@ -284,11 +284,11 @@ export default function App() {
 
   const updateEntryLocal = async (id: string, updates: Partial<BulletEntryData>) => {
     try {
-      // Convert date format if date is being updated
-      const dbUpdates: any = { ...updates };
+      // Convert frontend fields to database fields
+      const dbUpdates: any = {};
+      
       if (updates.date) {
         dbUpdates.entry_date = new Date(updates.date).toISOString().split('T')[0];
-        delete dbUpdates.date;
       }
       if (updates.state) {
         dbUpdates.state = updates.state;
@@ -296,12 +296,45 @@ export default function App() {
       if (updates.migrationCount !== undefined) {
         dbUpdates.migration_count = updates.migrationCount;
       }
+      if (updates.content !== undefined) {
+        dbUpdates.content = updates.content;
+      }
+      if (updates.type !== undefined) {
+        dbUpdates.entry_type = updates.type;
+      }
+      if (updates.signifiers !== undefined) {
+        dbUpdates.signifiers = updates.signifiers;
+      }
+      if (updates.eventState !== undefined) {
+        dbUpdates.event_state = updates.eventState;
+      }
+      if (updates.eventTime !== undefined) {
+        dbUpdates.event_time = updates.eventTime;
+      }
+      if (updates.eventEndTime !== undefined) {
+        dbUpdates.event_end_time = updates.eventEndTime;
+      }
+      if (updates.isAllDay !== undefined) {
+        dbUpdates.is_all_day = updates.isAllDay;
+      }
+      if (updates.eventCategory !== undefined) {
+        dbUpdates.event_category = updates.eventCategory;
+      }
+      if (updates.isRecurring !== undefined) {
+        dbUpdates.is_recurring = updates.isRecurring;
+      }
+      if (updates.recurringPattern !== undefined) {
+        dbUpdates.recurring_pattern = updates.recurringPattern;
+      }
 
+      console.log("Updating entry with:", dbUpdates); // Debug log
       await updateEntry(id, dbUpdates);
       setEntries(entries.map((entry) => (entry.id === id ? { ...entry, ...updates } : entry)));
-    } catch (error) {
+      toast.success("Entry updated successfully!");
+    } catch (error: any) {
       console.error("Error updating entry:", error);
-      toast.error("Failed to update entry.");
+      console.error("Error details:", error.message, error.details);
+      toast.error(`Failed to update entry: ${error.message || 'Unknown error'}`);
     }
   };
 
