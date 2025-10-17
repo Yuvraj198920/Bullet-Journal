@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Checkbox } from "./ui/checkbox";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -8,6 +9,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import { RescheduleDialog } from "./RescheduleDialog";
+import { SwipeableEntry } from "./SwipeableEntry";
+import { useIsMobile } from "./ui/use-mobile";
 
 export type EntryType = "task" | "event" | "note";
 export type TaskState = "incomplete" | "complete" | "migrated" | "scheduled" | "cancelled";
@@ -42,6 +46,10 @@ interface BulletEntryProps {
 }
 
 export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEntryProps) {
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [rescheduleEventDialogOpen, setRescheduleEventDialogOpen] = useState(false);
+  const isMobile = useIsMobile();
+
   const isPastEvent = () => {
     if (entry.type !== "event") return false;
     const now = new Date();
@@ -183,6 +191,22 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
     onUpdate(entry.id, { signifiers: newSignifiers });
   };
 
+  const handleReschedule = (newDate: Date) => {
+    const currentMigrationCount = entry.migrationCount || 0;
+    onUpdate(entry.id, { 
+      state: "scheduled",
+      date: newDate.toISOString(),
+      migrationCount: currentMigrationCount + 1
+    });
+  };
+
+  const handleEventReschedule = (newDate: Date) => {
+    onUpdate(entry.id, { 
+      date: newDate.toISOString(),
+      eventState: "migrated" 
+    });
+  };
+
   const getSignifierIcon = (signifier: Signifier) => {
     switch (signifier) {
       case "priority":
@@ -194,8 +218,27 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
     }
   };
 
-  return (
-    <div className={`flex items-start gap-3 group hover:bg-accent/50 p-2 rounded-md transition-colors ${getEventCategoryColor()}`}>
+  const handleSwipeComplete = () => {
+    if (entry.type === "task") {
+      handleTaskClick();
+    } else if (entry.type === "event") {
+      handleEventClick();
+    }
+  };
+
+  const handleSwipeDelete = () => {
+    if (entry.type === "task" || entry.type === "event") {
+      onUpdate(entry.id, { 
+        state: "cancelled",
+        eventState: entry.type === "event" ? "cancelled" : undefined 
+      });
+    } else {
+      onDelete(entry.id);
+    }
+  };
+
+  const entryContent = (
+    <div className={`flex items-start gap-3 group hover:bg-accent/50 p-3 md:p-2 rounded-md transition-colors ${getEventCategoryColor()}`}>
       <button
         onClick={entry.type === "task" ? handleTaskClick : handleEventClick}
         className="mt-0.5 flex-shrink-0 text-foreground/70 hover:text-foreground transition-colors"
@@ -274,7 +317,7 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
           <Button
             variant="ghost"
             size="sm"
-            className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8 p-0"
+            className={`${isMobile ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity h-8 w-8 p-0`}
           >
             •••
           </Button>
@@ -286,9 +329,9 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
                 <ChevronRight className="h-4 w-4 mr-2" />
                 Migrate to Next Day
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onUpdate(entry.id, { state: "scheduled" })}>
+              <DropdownMenuItem onClick={() => setRescheduleDialogOpen(true)}>
                 <ChevronLeft className="h-4 w-4 mr-2" />
-                Schedule
+                Schedule for Different Date
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onUpdate(entry.id, { state: "cancelled" })}>
                 <X className="h-4 w-4 mr-2" />
@@ -315,16 +358,9 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
                 <X className="h-4 w-4 mr-2" />
                 Cancel Event
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                const nextDay = new Date(entry.date);
-                nextDay.setDate(nextDay.getDate() + 1);
-                onUpdate(entry.id, { 
-                  date: nextDay.toISOString(),
-                  eventState: "migrated" 
-                });
-              }}>
-                <ChevronRight className="h-4 w-4 mr-2" />
-                Reschedule to Next Day
+              <DropdownMenuItem onClick={() => setRescheduleEventDialogOpen(true)}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Reschedule Event
               </DropdownMenuItem>
             </>
           )}
@@ -345,6 +381,40 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Reschedule Dialog for Tasks */}
+      <RescheduleDialog
+        open={rescheduleDialogOpen}
+        onOpenChange={setRescheduleDialogOpen}
+        onReschedule={handleReschedule}
+        currentDate={entry.date}
+        entryContent={entry.content}
+      />
+
+      {/* Reschedule Dialog for Events */}
+      <RescheduleDialog
+        open={rescheduleEventDialogOpen}
+        onOpenChange={setRescheduleEventDialogOpen}
+        onReschedule={handleEventReschedule}
+        currentDate={entry.date}
+        entryContent={entry.content}
+      />
     </div>
   );
+
+  // Wrap with swipeable on mobile
+  if (isMobile && entry.type !== "note") {
+    return (
+      <SwipeableEntry
+        onSwipeRight={handleSwipeComplete}
+        onSwipeLeft={handleSwipeDelete}
+        rightAction={entry.type === "task" ? "complete" : "check"}
+        leftAction="cancel"
+      >
+        {entryContent}
+      </SwipeableEntry>
+    );
+  }
+
+  return entryContent;
 }

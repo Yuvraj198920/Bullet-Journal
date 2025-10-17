@@ -78,6 +78,65 @@
   --sidebar-ring: oklch(0.439 0 0);
 }
 
+/* Warm Theme */
+.theme-warm:root {
+  --background: #fef7ed;
+  --foreground: #7c2d12;
+  --card: #ffffff;
+  --muted: #fed7aa;
+  --accent: #f97316;
+  --primary: #ea580c;
+}
+
+.dark.theme-warm {
+  --background: #1c1917;
+  --foreground: #fef7ed;
+  --card: #292524;
+  --muted: #44403c;
+  --accent: #fb923c;
+  --primary: #fb923c;
+}
+
+/* Cool Theme */
+.theme-cool:root {
+  --background: #f0f9ff;
+  --foreground: #0c4a6e;
+  --card: #ffffff;
+  --muted: #bae6fd;
+  --accent: #0ea5e9;
+  --primary: #0284c7;
+}
+
+.dark.theme-cool {
+  --background: #0c1222;
+  --foreground: #f0f9ff;
+  --card: #1e293b;
+  --muted: #1e293b;
+  --accent: #38bdf8;
+  --primary: #38bdf8;
+}
+
+/* High Contrast Theme */
+.theme-high-contrast:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --muted: #e5e5e5;
+  --accent: #000000;
+  --primary: #000000;
+  --border: #000000;
+}
+
+.dark.theme-high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #0a0a0a;
+  --muted: #404040;
+  --accent: #ffffff;
+  --primary: #ffffff;
+  --border: #ffffff;
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -186,4 +245,36 @@
 
 html {
   font-size: var(--font-size);
+}
+
+/* Mobile optimizations */
+@layer utilities {
+  /* Mobile tap targets - minimum 44x44px for better touch */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Safe area for iOS notch */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Disable text selection on swipeable elements */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Smooth scrolling for mobile */
+  @media (max-width: 767px) {
+    body {
+      -webkit-overflow-scrolling: touch;
+    }
+  }
 }

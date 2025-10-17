@@ -2,9 +2,10 @@ import { useState } from "react";
 import { BulletEntry, BulletEntryData, EntryType } from "./BulletEntry";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { ChevronLeft, ChevronRight, Circle, Square, Minus, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Circle, Square, Minus, Plus, ArrowRightLeft } from "lucide-react";
 import { AddEntryDialog } from "./AddEntryDialog";
 import { Badge } from "./ui/badge";
+import { MigrationWizard } from "./MigrationWizard";
 
 interface MonthlyLogProps {
   entries: BulletEntryData[];
@@ -26,6 +27,7 @@ export function MonthlyLog({
   onDeleteEntry,
 }: MonthlyLogProps) {
   const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [migrationWizardOpen, setMigrationWizardOpen] = useState(false);
 
   const formatMonth = (date: Date) => {
     return date.toLocaleDateString("en-US", {
@@ -148,18 +150,28 @@ export function MonthlyLog({
                   Task List
                 </Button>
               </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <div className="flex items-center gap-1">
-                  <Square className="h-3 w-3" />
-                  <span>{entries.filter(e => e.type === "task").length}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Circle className="h-3 w-3" />
-                  <span>{entries.filter(e => e.type === "event").length}</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Minus className="h-3 w-3" />
-                  <span>{entries.filter(e => e.type === "note").length}</span>
+              <div className="flex items-center gap-3">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setMigrationWizardOpen(true)}
+                >
+                  <ArrowRightLeft className="h-4 w-4 mr-2" />
+                  Migration Wizard
+                </Button>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-1">
+                    <Square className="h-3 w-3" />
+                    <span>{entries.filter(e => e.type === "task").length}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Circle className="h-3 w-3" />
+                    <span>{entries.filter(e => e.type === "event").length}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Minus className="h-3 w-3" />
+                    <span>{entries.filter(e => e.type === "note").length}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -292,6 +304,40 @@ export function MonthlyLog({
           </div>
         </CardContent>
       </Card>
+
+      {/* Migration Wizard */}
+      {onUpdateEntry && (
+        <MigrationWizard
+          open={migrationWizardOpen}
+          onOpenChange={setMigrationWizardOpen}
+          entries={entries}
+          currentMonth={currentDate}
+          onMigrate={(entryIds, action, targetDate) => {
+            entryIds.forEach((id) => {
+              const entry = entries.find((e) => e.id === id);
+              if (!entry) return;
+
+              if (action === "migrate" && targetDate) {
+                const currentMigrationCount = entry.migrationCount || 0;
+                onUpdateEntry(id, {
+                  state: "incomplete",
+                  date: targetDate.toISOString(),
+                  migrationCount: currentMigrationCount + 1,
+                });
+              } else if (action === "cancel") {
+                onUpdateEntry(id, { state: "cancelled" });
+              } else if (action === "schedule" && targetDate) {
+                const currentMigrationCount = entry.migrationCount || 0;
+                onUpdateEntry(id, {
+                  state: "scheduled",
+                  date: targetDate.toISOString(),
+                  migrationCount: currentMigrationCount + 1,
+                });
+              }
+            });
+          }}
+        />
+      )}
     </div>
   );
 }

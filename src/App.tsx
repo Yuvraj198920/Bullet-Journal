@@ -5,12 +5,22 @@ import { MonthlyLog } from "./components/MonthlyLog";
 import { FutureLog } from "./components/FutureLog";
 import { Collections, Collection } from "./components/Collections";
 import { IndexNavigation } from "./components/IndexNavigation";
+import { HabitsTracker, Habit } from "./components/HabitsTracker";
 import { BulletEntryData, EntryType, EventCategory } from "./components/BulletEntry";
 import { LoginForm } from "./components/auth/LoginForm";
 import { RegisterForm } from "./components/auth/RegisterForm";
 import { PasswordResetForm } from "./components/auth/PasswordResetForm";
+import { DataSyncBackup } from "./components/DataSyncBackup";
+import { MobileNavigation } from "./components/MobileNavigation";
+import { PullToRefreshIndicator } from "./components/PullToRefreshIndicator";
+import { ThemeCustomizer } from "./components/ThemeCustomizer";
 import { Button } from "./components/ui/button";
-import { BookOpen, LogOut } from "lucide-react";
+import { Toaster } from "./components/ui/sonner";
+import { BookOpen, LogOut, Menu } from "lucide-react";
+import { useIsMobile } from "./components/ui/use-mobile";
+import { usePullToRefresh } from "./hooks/usePullToRefresh";
+import { Sheet, SheetContent, SheetTrigger } from "./components/ui/sheet";
+import { toast } from "sonner";
 import { signIn, signUp, signOut, getSession, requestPasswordReset, onAuthStateChange, User } from "./lib/auth";
 
 type AuthView = "login" | "register" | "reset";
@@ -24,12 +34,15 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [entries, setEntries] = useState<BulletEntryData[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [habits, setHabits] = useState<Habit[]>([]);
   const [dailyDate, setDailyDate] = useState(new Date());
   const [monthlyDate, setMonthlyDate] = useState(new Date());
   const [futureYear, setFutureYear] = useState(new Date().getFullYear());
   const [activeTab, setActiveTab] = useState("daily");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const inactivityTimerRef = useRef<number | null>(null);
+  const isMobile = useIsMobile();
 
   // Check for existing session on mount
   useEffect(() => {
@@ -100,12 +113,16 @@ export default function App() {
   const loadUserData = (userId: string) => {
     const savedEntries = localStorage.getItem(`bulletJournalEntries_${userId}`);
     const savedCollections = localStorage.getItem(`bulletJournalCollections_${userId}`);
+    const savedHabits = localStorage.getItem(`bulletJournalHabits_${userId}`);
     
     if (savedEntries) {
       setEntries(JSON.parse(savedEntries));
     }
     if (savedCollections) {
       setCollections(JSON.parse(savedCollections));
+    }
+    if (savedHabits) {
+      setHabits(JSON.parse(savedHabits));
     }
   };
 
@@ -123,6 +140,13 @@ export default function App() {
     }
   }, [collections, user]);
 
+  // Save habits to localStorage
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(`bulletJournalHabits_${user.id}`, JSON.stringify(habits));
+    }
+  }, [habits, user]);
+
   const handleSignIn = async (email: string, password: string) => {
     const result = await signIn(email, password);
     setUser(result.user);
@@ -132,6 +156,11 @@ export default function App() {
 
   const handleSignUp = async (email: string, password: string, name: string) => {
     await signUp(email, password, name);
+    // Automatically sign in after successful signup
+    const result = await signIn(email, password);
+    setUser(result.user);
+    setAccessToken(result.accessToken);
+    loadUserData(result.user.id);
   };
 
   const handleSignOut = async () => {
@@ -292,6 +321,62 @@ export default function App() {
     );
   };
 
+  // Habit handlers
+  const addHabit = (habitData: Omit<Habit, "id" | "createdAt" | "completions">) => {
+    const newHabit: Habit = {
+      ...habitData,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      completions: [],
+    };
+    setHabits([...habits, newHabit]);
+  };
+
+  const deleteHabit = (id: string) => {
+    setHabits(habits.filter((h) => h.id !== id));
+  };
+
+  const toggleHabitCompletion = (habitId: string, date: string) => {
+    setHabits(
+      habits.map((habit) => {
+        if (habit.id === habitId) {
+          const existingCompletion = habit.completions.find((c) => c.date === date);
+          if (existingCompletion) {
+            return {
+              ...habit,
+              completions: habit.completions.map((c) =>
+                c.date === date ? { ...c, completed: !c.completed } : c
+              ),
+            };
+          } else {
+            return {
+              ...habit,
+              completions: [...habit.completions, { date, completed: true }],
+            };
+          }
+        }
+        return habit;
+      })
+    );
+  };
+
+  // Import data from backup
+  const handleImportData = (importedEntries: BulletEntryData[], importedCollections: Collection[]) => {
+    setEntries(importedEntries);
+    setCollections(importedCollections);
+  };
+
+  // Pull to refresh
+  const handleRefresh = async () => {
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    toast.success("Data refreshed!");
+  };
+
+  const { pulling, refreshing, pullDistance, progress } = usePullToRefresh({
+    onRefresh: handleRefresh,
+    disabled: !isMobile || !user,
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -344,31 +429,86 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
+      {/* Pull to Refresh Indicator */}
+      <PullToRefreshIndicator
+        pulling={pulling}
+        refreshing={refreshing}
+        progress={progress}
+        pullDistance={pullDistance}
+      />
+
       <div className="container mx-auto p-4 max-w-6xl">
-        <header className="mb-8">
+        <header className="mb-4 md:mb-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <BookOpen className="h-8 w-8" />
+              <BookOpen className="h-6 w-6 md:h-8 md:w-8" />
               <div>
-                <h1>Bullet Journal</h1>
-                <p className="text-sm text-muted-foreground">
+                <h1 className="text-lg md:text-2xl">Bullet Journal</h1>
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                   Welcome back, {user.name || user.email}
                 </p>
               </div>
             </div>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Desktop Actions */}
+              {!isMobile && (
+                <>
+                  <ThemeCustomizer />
+                  <DataSyncBackup
+                    entries={entries}
+                    collections={collections}
+                    userId={user.id}
+                    onImport={handleImportData}
+                  />
+                  <Button variant="outline" onClick={handleSignOut}>
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </Button>
+                </>
+              )}
+
+              {/* Mobile Menu */}
+              {isMobile && (
+                <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <Menu className="h-5 w-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="right">
+                    <div className="flex flex-col gap-4 mt-8">
+                      <div className="pb-4 border-b">
+                        <p className="text-sm text-muted-foreground">
+                          {user.email}
+                        </p>
+                      </div>
+                      <ThemeCustomizer />
+                      <DataSyncBackup
+                        entries={entries}
+                        collections={collections}
+                        userId={user.id}
+                        onImport={handleImportData}
+                      />
+                      <Button variant="outline" onClick={handleSignOut} className="justify-start">
+                        <LogOut className="h-4 w-4 mr-2" />
+                        Sign Out
+                      </Button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              )}
+            </div>
           </div>
         </header>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6">
+          {/* Desktop Tabs */}
+          <TabsList className="hidden md:grid w-full grid-cols-6 mb-6">
             <TabsTrigger value="daily">Daily Log</TabsTrigger>
             <TabsTrigger value="monthly">Monthly Log</TabsTrigger>
             <TabsTrigger value="future">Future Log</TabsTrigger>
+            <TabsTrigger value="habits">Habits</TabsTrigger>
             <TabsTrigger value="collections">Collections</TabsTrigger>
             <TabsTrigger value="index">Index</TabsTrigger>
           </TabsList>
@@ -408,6 +548,16 @@ export default function App() {
             />
           </TabsContent>
 
+          <TabsContent value="habits">
+            <HabitsTracker
+              habits={habits}
+              onAddHabit={addHabit}
+              onDeleteHabit={deleteHabit}
+              onToggleCompletion={toggleHabitCompletion}
+              currentDate={dailyDate}
+            />
+          </TabsContent>
+
           <TabsContent value="collections">
             <Collections
               collections={collections}
@@ -429,6 +579,13 @@ export default function App() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Mobile Bottom Navigation */}
+      {isMobile && user && (
+        <MobileNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+      )}
+
+      <Toaster />
     </div>
   );
 }

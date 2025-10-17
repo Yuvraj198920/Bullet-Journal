@@ -47,7 +47,50 @@ This roadmap outlines the planned features and improvements for the Bullet Journ
 
 ---
 
-## Version 1.1 - Mobile Experience 🚧 (Target: December 2025)
+## Version 2.0 - Enhanced Experience ✅ (Released October 2025)
+
+### Mobile Responsive Design & Touch Gestures ✅
+- [x] Fully responsive layouts for all screen sizes
+- [x] Swipe gestures (right to complete, left to cancel)
+- [x] Pull-to-refresh functionality
+- [x] Bottom navigation bar for mobile
+- [x] Touch-optimized controls (44x44px minimum)
+- [x] Mobile hamburger menu
+- [x] iOS safe area support
+- [x] Smooth mobile animations
+
+### Habits Tracker ✅
+- [x] Create and manage habits
+- [x] 7-day visual habit tracker
+- [x] Streak tracking with statistics
+- [x] Completion rate percentage
+- [x] Grid and list view options
+- [x] 5 habit categories
+- [x] 17 color options
+- [x] Frequency settings (daily, weekly, custom)
+
+### Dark Mode & Theme System ✅
+- [x] Light/Dark/System theme modes
+- [x] 4 theme styles (Default, Warm, Cool, High Contrast)
+- [x] Theme persistence in localStorage
+- [x] Smooth theme transitions
+- [x] System preference integration
+- [x] Full accessibility support (WCAG AA)
+
+### Migration & Backup ✅
+- [x] Monthly migration wizard
+- [x] Smart migration suggestions
+- [x] Migration statistics and insights
+- [x] Data backup and export (JSON, Markdown)
+- [x] Import/restore from backup
+
+### Bug Fixes ✅
+- [x] Fixed reschedule date picker
+- [x] Fixed data loading after login/signup
+
+---
+
+## Version 1.1 - Mobile Experience 🚧 (Completed Early - See v2.0)
 
 ### High Priority 🚧
 
