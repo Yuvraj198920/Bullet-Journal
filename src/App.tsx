@@ -284,7 +284,20 @@ export default function App() {
 
   const updateEntryLocal = async (id: string, updates: Partial<BulletEntryData>) => {
     try {
-      await updateEntry(id, updates as any);
+      // Convert date format if date is being updated
+      const dbUpdates: any = { ...updates };
+      if (updates.date) {
+        dbUpdates.entry_date = new Date(updates.date).toISOString().split('T')[0];
+        delete dbUpdates.date;
+      }
+      if (updates.state) {
+        dbUpdates.state = updates.state;
+      }
+      if (updates.migrationCount !== undefined) {
+        dbUpdates.migration_count = updates.migrationCount;
+      }
+
+      await updateEntry(id, dbUpdates);
       setEntries(entries.map((entry) => (entry.id === id ? { ...entry, ...updates } : entry)));
     } catch (error) {
       console.error("Error updating entry:", error);
