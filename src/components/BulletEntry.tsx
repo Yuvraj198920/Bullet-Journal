@@ -9,7 +9,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
-import { RescheduleDialog } from "./RescheduleDialog";
 import { SwipeableEntry } from "./SwipeableEntry";
 import { useIsMobile } from "./ui/use-mobile";
 
@@ -46,8 +45,6 @@ interface BulletEntryProps {
 }
 
 export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEntryProps) {
-  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
-  const [rescheduleEventDialogOpen, setRescheduleEventDialogOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const isPastEvent = () => {
@@ -191,15 +188,6 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
     onUpdate(entry.id, { signifiers: newSignifiers });
   };
 
-  const handleReschedule = (newDate: Date) => {
-    const currentMigrationCount = entry.migrationCount || 0;
-    onUpdate(entry.id, { 
-      state: "scheduled",
-      date: newDate.toISOString(),
-      migrationCount: currentMigrationCount + 1
-    });
-  };
-
   const handleEventReschedule = (newDate: Date) => {
     onUpdate(entry.id, { 
       date: newDate.toISOString(),
@@ -329,10 +317,6 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
                 <ChevronRight className="h-4 w-4 mr-2" />
                 Migrate to Next Day
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setRescheduleDialogOpen(true)}>
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Schedule for Different Date
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onUpdate(entry.id, { state: "cancelled" })}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
@@ -382,23 +366,7 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Reschedule Dialog for Tasks */}
-      <RescheduleDialog
-        open={rescheduleDialogOpen}
-        onOpenChange={setRescheduleDialogOpen}
-        onReschedule={handleReschedule}
-        currentDate={entry.date}
-        entryContent={entry.content}
-      />
 
-      {/* Reschedule Dialog for Events */}
-      <RescheduleDialog
-        open={rescheduleEventDialogOpen}
-        onOpenChange={setRescheduleEventDialogOpen}
-        onReschedule={handleEventReschedule}
-        currentDate={entry.date}
-        entryContent={entry.content}
-      />
     </div>
   );
 
