@@ -3,9 +3,10 @@ import { BulletEntry, BulletEntryData, EntryType, TaskState, EventCategory } fro
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { ChevronLeft, ChevronRight, Search, Filter, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search, Filter, X, Clock } from "lucide-react";
 import { AddEntryDialog } from "./AddEntryDialog";
 import { AddEventDialog } from "./AddEventDialog";
+import { DailyMigrationDialog } from "./DailyMigrationDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,10 @@ interface DailyLogProps {
   ) => void;
   onUpdateEntry: (id: string, updates: Partial<BulletEntryData>) => void;
   onDeleteEntry: (id: string) => void;
+  allEntries: BulletEntryData[];
+  onMigrateTask: (taskId: string, targetDate: Date) => void;
+  onScheduleTask: (taskId: string, targetDate: Date) => void;
+  onCancelTask: (taskId: string) => void;
 }
 
 export function DailyLog({
@@ -43,10 +48,42 @@ export function DailyLog({
   onAddEvent,
   onUpdateEntry,
   onDeleteEntry,
+  allEntries,
+  onMigrateTask,
+  onScheduleTask,
+  onCancelTask,
 }: DailyLogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStates, setFilterStates] = useState<TaskState[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
+  const [incompleteTasks, setIncompleteTasks] = useState<BulletEntryData[]>([]);
+
+  // Check for incomplete tasks from previous days when date changes
+  useEffect(() => {
+    const checkIncompleteTasks = () => {
+      const today = new Date(currentDate);
+      today.setHours(0, 0, 0, 0);
+
+      const incomplete = allEntries.filter((entry) => {
+        if (entry.type !== "task") return false;
+        if (entry.state === "complete" || entry.state === "cancelled") return false;
+
+        const entryDate = new Date(entry.date);
+        entryDate.setHours(0, 0, 0, 0);
+
+        // Only show tasks from previous days
+        return entryDate < today;
+      });
+
+      if (incomplete.length > 0) {
+        setIncompleteTasks(incomplete);
+        setMigrationDialogOpen(true);
+      }
+    };
+
+    checkIncompleteTasks();
+  }, [currentDate, allEntries]);
 
   // Keyboard shortcuts for rapid logging
   useEffect(() => {
@@ -344,6 +381,17 @@ export function DailyLog({
           </div>
         </CardContent>
       </Card>
+
+      {/* Daily Migration Dialog */}
+      <DailyMigrationDialog
+        open={migrationDialogOpen}
+        onOpenChange={setMigrationDialogOpen}
+        incompleteTasks={incompleteTasks}
+        currentDate={currentDate}
+        onMigrate={onMigrateTask}
+        onSchedule={onScheduleTask}
+        onCancel={onCancelTask}
+      />
     </div>
   );
 }

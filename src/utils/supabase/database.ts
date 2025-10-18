@@ -421,3 +421,269 @@ export async function deleteCollectionItem(itemId: string) {
   if (error) throw error;
 }
 
+// ============================================
+// MIGRATION HISTORY CRUD
+// ============================================
+
+export interface MigrationHistoryDB {
+  id: string;
+  task_id: string;
+  user_id: string;
+  original_date: string;
+  migrated_to_date: string | null;
+  migration_type: 'migrate' | 'schedule' | 'cancel';
+  created_at: string;
+}
+
+/**
+ * Get all incomplete tasks from previous days (for daily migration prompt)
+ */
+export async function getPendingMigrations(beforeDate?: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const today = beforeDate || new Date().toISOString().split('T')[0];
+
+  const { data, error } = await supabase
+    .from("entries")
+    .select("*")
+    .eq("user_id", user.id)
+    .eq("entry_type", "task")
+    .lt("entry_date", today)
+    .in("state", ["incomplete", "migrated", "scheduled"])
+    .order("entry_date", { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Migrate a task to a new date and record the migration
+ */
+export async function migrateTask(
+  taskId: string,
+  originalDate: string,
+  newDate: string
+) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Get the current task
+  const { data: task, error: fetchError } = await supabase
+    .from("entries")
+    .select("*")
+    .eq("id", taskId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!task) throw new Error("Task not found");
+
+  // Update the original task to show it was migrated
+  const { error: updateError } = await supabase
+    .from("entries")
+    .update({
+      state: "migrated",
+      migration_count: (task.migration_count || 0) + 1,
+    })
+    .eq("id", taskId)
+    .eq("user_id", user.id);
+
+  if (updateError) throw updateError;
+
+  // Create a new task for the new date
+  const { data: newTask, error: createError } = await supabase
+    .from("entries")
+    .insert([
+      {
+        user_id: user.id,
+        entry_date: newDate,
+        entry_type: task.entry_type,
+        content: task.content,
+        state: "incomplete",
+        migration_count: (task.migration_count || 0) + 1,
+        signifiers: task.signifiers,
+        event_state: task.event_state,
+        event_time: task.event_time,
+        event_end_time: task.event_end_time,
+        is_all_day: task.is_all_day,
+        event_category: task.event_category,
+        is_recurring: task.is_recurring,
+        recurring_pattern: task.recurring_pattern,
+      },
+    ])
+    .select()
+    .single();
+
+  if (createError) throw createError;
+
+  // Record the migration in history
+  const { error: historyError } = await supabase
+    .from("migration_history")
+    .insert([
+      {
+        task_id: taskId,
+        user_id: user.id,
+        original_date: originalDate,
+        migrated_to_date: newDate,
+        migration_type: "migrate",
+      },
+    ]);
+
+  if (historyError) throw historyError;
+
+  return newTask;
+}
+
+/**
+ * Schedule a task to a specific future date and record the migration
+ */
+export async function scheduleTask(
+  taskId: string,
+  originalDate: string,
+  scheduledDate: string
+) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Get the current task
+  const { data: task, error: fetchError } = await supabase
+    .from("entries")
+    .select("*")
+    .eq("id", taskId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (fetchError) throw fetchError;
+  if (!task) throw new Error("Task not found");
+
+  // Update the original task to show it was scheduled
+  const { error: updateError } = await supabase
+    .from("entries")
+    .update({
+      state: "scheduled",
+      migration_count: (task.migration_count || 0) + 1,
+    })
+    .eq("id", taskId)
+    .eq("user_id", user.id);
+
+  if (updateError) throw updateError;
+
+  // Create a new task for the scheduled date
+  const { data: newTask, error: createError } = await supabase
+    .from("entries")
+    .insert([
+      {
+        user_id: user.id,
+        entry_date: scheduledDate,
+        entry_type: task.entry_type,
+        content: task.content,
+        state: "incomplete",
+        migration_count: (task.migration_count || 0) + 1,
+        signifiers: task.signifiers,
+        event_state: task.event_state,
+        event_time: task.event_time,
+        event_end_time: task.event_end_time,
+        is_all_day: task.is_all_day,
+        event_category: task.event_category,
+        is_recurring: task.is_recurring,
+        recurring_pattern: task.recurring_pattern,
+      },
+    ])
+    .select()
+    .single();
+
+  if (createError) throw createError;
+
+  // Record the migration in history
+  const { error: historyError } = await supabase
+    .from("migration_history")
+    .insert([
+      {
+        task_id: taskId,
+        user_id: user.id,
+        original_date: originalDate,
+        migrated_to_date: scheduledDate,
+        migration_type: "schedule",
+      },
+    ]);
+
+  if (historyError) throw historyError;
+
+  return newTask;
+}
+
+/**
+ * Cancel a task and record the cancellation
+ */
+export async function cancelTask(taskId: string, originalDate: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Update the task to cancelled
+  const { error: updateError } = await supabase
+    .from("entries")
+    .update({ state: "cancelled" })
+    .eq("id", taskId)
+    .eq("user_id", user.id);
+
+  if (updateError) throw updateError;
+
+  // Record the cancellation in history
+  const { error: historyError } = await supabase
+    .from("migration_history")
+    .insert([
+      {
+        task_id: taskId,
+        user_id: user.id,
+        original_date: originalDate,
+        migrated_to_date: null,
+        migration_type: "cancel",
+      },
+    ]);
+
+  if (historyError) throw historyError;
+}
+
+/**
+ * Get migration history for a specific task
+ */
+export async function getTaskMigrationHistory(taskId: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("migration_history")
+    .select("*")
+    .eq("task_id", taskId)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
+ * Get migration statistics for a user
+ */
+export async function getUserMigrationStats() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  const { data, error } = await supabase
+    .from("migration_history")
+    .select("migration_type")
+    .eq("user_id", user.id);
+
+  if (error) throw error;
+
+  const stats = {
+    totalMigrations: data?.length || 0,
+    migrated: data?.filter((m) => m.migration_type === "migrate").length || 0,
+    scheduled: data?.filter((m) => m.migration_type === "schedule").length || 0,
+    cancelled: data?.filter((m) => m.migration_type === "cancel").length || 0,
+  };
+
+  return stats;
+}
+
