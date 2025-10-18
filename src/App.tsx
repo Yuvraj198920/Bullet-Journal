@@ -38,7 +38,11 @@ import {
   createCollectionItem,
   getAllUserCollectionItems,
   toggleCollectionItem,
-  deleteCollectionItem
+  deleteCollectionItem,
+  getPendingMigrations,
+  migrateTask,
+  scheduleTask,
+  cancelTask,
 } from "./utils/supabase/database";
 
 
@@ -565,6 +569,125 @@ export default function App() {
     setCollections(importedCollections);
   };
 
+  // Migration handlers
+  const handleMigrateTask = async (taskId: string, targetDate: Date) => {
+    try {
+      const task = entries.find((e) => e.id === taskId);
+      if (!task) {
+        toast.error("Task not found");
+        return;
+      }
+
+      const originalDate = new Date(task.date).toISOString().split('T')[0];
+      const newDateString = targetDate.toISOString().split('T')[0];
+
+      const newTask = await migrateTask(taskId, originalDate, newDateString);
+      
+      // Update local state
+      setEntries([
+        ...entries.map((e) => 
+          e.id === taskId 
+            ? { ...e, state: "migrated" as TaskState, migrationCount: (e.migrationCount || 0) + 1 }
+            : e
+        ),
+        {
+          id: newTask.id,
+          date: newTask.entry_date,
+          type: newTask.entry_type as EntryType,
+          content: newTask.content,
+          state: newTask.state as TaskState,
+          migrationCount: newTask.migration_count || 0,
+          signifiers: newTask.signifiers || undefined,
+          eventState: newTask.event_state as any,
+          eventTime: newTask.event_time || undefined,
+          eventEndTime: newTask.event_end_time || undefined,
+          isAllDay: newTask.is_all_day || undefined,
+          eventCategory: newTask.event_category as any,
+          isRecurring: newTask.is_recurring || undefined,
+          recurringPattern: newTask.recurring_pattern || undefined,
+        },
+      ]);
+
+      toast.success("Task migrated to today!");
+    } catch (error) {
+      console.error("Error migrating task:", error);
+      toast.error("Failed to migrate task");
+    }
+  };
+
+  const handleScheduleTask = async (taskId: string, targetDate: Date) => {
+    try {
+      const task = entries.find((e) => e.id === taskId);
+      if (!task) {
+        toast.error("Task not found");
+        return;
+      }
+
+      const originalDate = new Date(task.date).toISOString().split('T')[0];
+      const scheduledDateString = targetDate.toISOString().split('T')[0];
+
+      const newTask = await scheduleTask(taskId, originalDate, scheduledDateString);
+      
+      // Update local state
+      setEntries([
+        ...entries.map((e) => 
+          e.id === taskId 
+            ? { ...e, state: "scheduled" as TaskState, migrationCount: (e.migrationCount || 0) + 1 }
+            : e
+        ),
+        {
+          id: newTask.id,
+          date: newTask.entry_date,
+          type: newTask.entry_type as EntryType,
+          content: newTask.content,
+          state: newTask.state as TaskState,
+          migrationCount: newTask.migration_count || 0,
+          signifiers: newTask.signifiers || undefined,
+          eventState: newTask.event_state as any,
+          eventTime: newTask.event_time || undefined,
+          eventEndTime: newTask.event_end_time || undefined,
+          isAllDay: newTask.is_all_day || undefined,
+          eventCategory: newTask.event_category as any,
+          isRecurring: newTask.is_recurring || undefined,
+          recurringPattern: newTask.recurring_pattern || undefined,
+        },
+      ]);
+
+      toast.success(`Task scheduled for ${targetDate.toLocaleDateString()}!`);
+    } catch (error) {
+      console.error("Error scheduling task:", error);
+      toast.error("Failed to schedule task");
+    }
+  };
+
+  const handleCancelTask = async (taskId: string) => {
+    try {
+      const task = entries.find((e) => e.id === taskId);
+      if (!task) {
+        toast.error("Task not found");
+        return;
+      }
+
+      const originalDate = new Date(task.date).toISOString().split('T')[0];
+
+      await cancelTask(taskId, originalDate);
+      
+      // Update local state
+      setEntries(
+        entries.map((e) => 
+          e.id === taskId 
+            ? { ...e, state: "cancelled" as TaskState }
+            : e
+        )
+      );
+
+      toast.success("Task cancelled!");
+    } catch (error) {
+      console.error("Error cancelling task:", error);
+      toast.error("Failed to cancel task");
+    }
+  };
+
   // Pull to refresh
   const handleRefresh = async () => {
     await new Promise(resolve => setTimeout(resolve, 1000));
@@ -721,6 +844,10 @@ export default function App() {
               onAddEvent={addEvent}
               onUpdateEntry={updateEntryLocal}
               onDeleteEntry={deleteEntryLocal}
+              allEntries={entries}
+              onMigrateTask={handleMigrateTask}
+              onScheduleTask={handleScheduleTask}
+              onCancelTask={handleCancelTask}
             />
           </TabsContent>
 
