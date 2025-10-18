@@ -237,8 +237,14 @@ export default function App() {
 
   const addEntry = async (content: string, type: EntryType, date: Date) => {
     try {
+      // Format date to YYYY-MM-DD in local timezone to avoid UTC conversion issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+
       const newEntry = await createEntry({
-        date: date.toISOString().split('T')[0],
+        date: dateString,
         type,
         content,
         state: "incomplete",
@@ -250,6 +256,8 @@ export default function App() {
         type: newEntry.entry_type as EntryType,
         content: newEntry.content,
         state: newEntry.state as any,
+        migrationCount: newEntry.migration_count || undefined,
+        signifiers: newEntry.signifiers || undefined,
       }]);
 
       toast.success("Entry added successfully!");

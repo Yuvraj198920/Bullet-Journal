@@ -67,7 +67,9 @@ export function DailyLog({
 
       const incomplete = allEntries.filter((entry) => {
         if (entry.type !== "task") return false;
-        if (entry.state === "complete" || entry.state === "cancelled") return false;
+        
+        // Exclude tasks that are already complete, cancelled, migrated, or scheduled
+        if (entry.state !== "incomplete") return false;
 
         const entryDate = new Date(entry.date);
         entryDate.setHours(0, 0, 0, 0);
