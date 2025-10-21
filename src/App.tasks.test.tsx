@@ -283,6 +283,37 @@ describe('App - Task Functionality Tests', () => {
       expect(newTask.entry_date).toBe('2025-11-01');
       expect(mockMigrateTask).toHaveBeenCalledWith('task-oct', '2025-10-31', '2025-11-01');
     });
+
+    it('should preserve exact date when migrating (no timezone shift)', async () => {
+      const mockMigrateTask = vi.mocked(migrateTask);
+
+      // Test that Oct 22 stays as Oct 22, not shifted to Oct 21
+      mockMigrateTask.mockResolvedValue({
+        id: 'task-migrate-tz',
+        user_id: 'test-user',
+        entry_date: '2025-10-22',
+        entry_type: 'task',
+        content: 'Migration timezone test',
+        state: 'incomplete',
+        migration_count: 1,
+        signifiers: null,
+        event_state: null,
+        event_time: null,
+        event_end_time: null,
+        is_all_day: null,
+        event_category: null,
+        is_recurring: null,
+        recurring_pattern: null,
+        created_at: '2025-10-21T10:00:00Z',
+        updated_at: '2025-10-22T10:00:00Z',
+      });
+
+      const task = await migrateTask('task-orig-tz', '2025-10-21', '2025-10-22');
+
+      // Verify the date is exactly what was migrated to (no -1 day shift)
+      expect(task.entry_date).toBe('2025-10-22');
+      expect(mockMigrateTask).toHaveBeenCalledWith('task-orig-tz', '2025-10-21', '2025-10-22');
+    });
   });
 
   describe('Task Scheduling', () => {
@@ -342,6 +373,37 @@ describe('App - Task Functionality Tests', () => {
 
       // Verify appears on target date
       expect(task.entry_date).toBe('2025-10-28');
+    });
+
+    it('should preserve exact date when scheduling (no timezone shift)', async () => {
+      const mockScheduleTask = vi.mocked(scheduleTask);
+
+      // Test that Oct 25 stays as Oct 25, not shifted to Oct 24
+      mockScheduleTask.mockResolvedValue({
+        id: 'task-timezone-test',
+        user_id: 'test-user',
+        entry_date: '2025-10-25',
+        entry_type: 'task',
+        content: 'Timezone test task',
+        state: 'incomplete',
+        migration_count: 1,
+        signifiers: null,
+        event_state: null,
+        event_time: null,
+        event_end_time: null,
+        is_all_day: null,
+        event_category: null,
+        is_recurring: null,
+        recurring_pattern: null,
+        created_at: '2025-10-21T10:00:00Z',
+        updated_at: '2025-10-25T10:00:00Z',
+      });
+
+      const task = await scheduleTask('task-tz', '2025-10-21', '2025-10-25');
+
+      // Verify the date is exactly what was scheduled (no -1 day shift)
+      expect(task.entry_date).toBe('2025-10-25');
+      expect(mockScheduleTask).toHaveBeenCalledWith('task-tz', '2025-10-21', '2025-10-25');
     });
   });
 

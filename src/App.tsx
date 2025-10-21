@@ -328,7 +328,9 @@ export default function App() {
       const dbUpdates: any = {};
       
       if (updates.date) {
-        dbUpdates.entry_date = new Date(updates.date).toISOString().split('T')[0];
+        // Use local date formatting to avoid timezone issues
+        const date = new Date(updates.date);
+        dbUpdates.entry_date = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
       }
       if (updates.state) {
         dbUpdates.state = updates.state;
@@ -615,7 +617,8 @@ export default function App() {
       }
 
       const originalDate = new Date(task.date).toISOString().split('T')[0];
-      const newDateString = targetDate.toISOString().split('T')[0];
+      // Use local date formatting to avoid timezone issues
+      const newDateString = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
 
       const newTask = await migrateTask(taskId, originalDate, newDateString);
       
@@ -660,7 +663,8 @@ export default function App() {
       }
 
       const originalDate = new Date(task.date).toISOString().split('T')[0];
-      const scheduledDateString = targetDate.toISOString().split('T')[0];
+      // Use local date formatting to avoid timezone issues
+      const scheduledDateString = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
 
       const newTask = await scheduleTask(taskId, originalDate, scheduledDateString);
       

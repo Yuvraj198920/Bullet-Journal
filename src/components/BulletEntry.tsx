@@ -42,12 +42,14 @@ interface BulletEntryProps {
   entry: BulletEntryData;
   onUpdate: (id: string, updates: Partial<BulletEntryData>) => void;
   onDelete: (id: string) => void;
+  onSchedule?: (taskId: string, targetDate: Date) => void;
   currentDate?: Date;
 }
 
-export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEntryProps) {
+export function BulletEntry({ entry, onUpdate, onDelete, onSchedule, currentDate }: BulletEntryProps) {
   const isMobile = useIsMobile();
   const [rescheduleEventDialogOpen, setRescheduleEventDialogOpen] = useState(false);
+  const [scheduleTaskDialogOpen, setScheduleTaskDialogOpen] = useState(false);
 
   const isPastEvent = () => {
     if (entry.type !== "event") return false;
@@ -197,6 +199,12 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
     });
   };
 
+  const handleTaskSchedule = (targetDate: Date) => {
+    if (onSchedule) {
+      onSchedule(entry.id, targetDate);
+    }
+  };
+
   const getSignifierIcon = (signifier: Signifier) => {
     switch (signifier) {
       case "priority":
@@ -324,6 +332,10 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
                 <ChevronRight className="h-4 w-4 mr-2" />
                 Migrate to Next Day
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setScheduleTaskDialogOpen(true)}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Schedule Task
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onUpdate(entry.id, { state: "cancelled" })}>
                 <X className="h-4 w-4 mr-2" />
                 Cancel
@@ -412,6 +424,16 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
           open={rescheduleEventDialogOpen}
           onOpenChange={setRescheduleEventDialogOpen}
           onReschedule={handleEventReschedule}
+          currentDate={entry.date}
+          entryContent={entry.content}
+        />
+      )}
+      
+      {entry.type === "task" && (
+        <RescheduleDialog
+          open={scheduleTaskDialogOpen}
+          onOpenChange={setScheduleTaskDialogOpen}
+          onReschedule={handleTaskSchedule}
           currentDate={entry.date}
           entryContent={entry.content}
         />
