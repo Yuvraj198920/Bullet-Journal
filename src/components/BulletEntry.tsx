@@ -283,6 +283,11 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
                     {entry.eventCategory}
                   </Badge>
                 )}
+                {entry.eventState === "attended" && (
+                  <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                    Attended
+                  </Badge>
+                )}
                 {entry.eventState === "missed" && (
                   <Badge variant="destructive" className="text-xs">
                     Missed

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BulletEntry, BulletEntryData, EntryType, TaskState, EventCategory } from "./BulletEntry";
+import { BulletEntry, BulletEntryData, EntryType, TaskState, EventState, EventCategory } from "./BulletEntry";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -55,6 +55,7 @@ export function DailyLog({
 }: DailyLogProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStates, setFilterStates] = useState<TaskState[]>([]);
+  const [filterEventStates, setFilterEventStates] = useState<EventState[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
   const [incompleteTasks, setIncompleteTasks] = useState<BulletEntryData[]>([]);
@@ -157,9 +158,18 @@ export function DailyLog({
       return false;
     }
 
-    // Status filter
+    // Task status filter
     if (filterStates.length > 0 && entry.type === "task") {
       if (!filterStates.includes(entry.state)) {
+        return false;
+      }
+    }
+
+    // Event status filter - only apply if filters are set
+    if (filterEventStates.length > 0 && entry.type === "event") {
+      // Events might not have eventState set, treat as "upcoming" by default
+      const eventState = entry.eventState || "upcoming";
+      if (!filterEventStates.includes(eventState)) {
         return false;
       }
     }
@@ -177,12 +187,19 @@ export function DailyLog({
     );
   };
 
+  const toggleFilterEventState = (state: EventState) => {
+    setFilterEventStates((prev) =>
+      prev.includes(state) ? prev.filter((s) => s !== state) : [...prev, state]
+    );
+  };
+
   const clearFilters = () => {
     setFilterStates([]);
+    setFilterEventStates([]);
     setSearchQuery("");
   };
 
-  const hasActiveFilters = searchQuery || filterStates.length > 0;
+  const hasActiveFilters = searchQuery || filterStates.length > 0 || filterEventStates.length > 0;
 
   return (
     <div className="space-y-4">
@@ -232,15 +249,15 @@ export function DailyLog({
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon" className="relative">
                     <Filter className="h-4 w-4" />
-                    {filterStates.length > 0 && (
+                    {(filterStates.length > 0 || filterEventStates.length > 0) && (
                       <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                        {filterStates.length}
+                        {filterStates.length + filterEventStates.length}
                       </span>
                     )}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
-                  <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                  <DropdownMenuLabel>Filter by Task Status</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuCheckboxItem
                     checked={filterStates.includes("incomplete")}
@@ -272,6 +289,41 @@ export function DailyLog({
                   >
                     Cancelled Tasks
                   </DropdownMenuCheckboxItem>
+                  
+                  <DropdownMenuSeparator />
+                  <DropdownMenuLabel>Filter by Event Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  
+                  <DropdownMenuCheckboxItem
+                    checked={filterEventStates.includes("upcoming")}
+                    onCheckedChange={() => toggleFilterEventState("upcoming")}
+                  >
+                    Upcoming Events
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={filterEventStates.includes("attended")}
+                    onCheckedChange={() => toggleFilterEventState("attended")}
+                  >
+                    Attended Events
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={filterEventStates.includes("missed")}
+                    onCheckedChange={() => toggleFilterEventState("missed")}
+                  >
+                    Missed Events
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={filterEventStates.includes("cancelled")}
+                    onCheckedChange={() => toggleFilterEventState("cancelled")}
+                  >
+                    Cancelled Events
+                  </DropdownMenuCheckboxItem>
+                  <DropdownMenuCheckboxItem
+                    checked={filterEventStates.includes("migrated")}
+                    onCheckedChange={() => toggleFilterEventState("migrated")}
+                  >
+                    Migrated Events
+                  </DropdownMenuCheckboxItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
@@ -288,8 +340,16 @@ export function DailyLog({
                 )}
                 {filterStates.length > 0 && (
                   <Badge variant="secondary" className="gap-1">
-                    {filterStates.length} filter{filterStates.length > 1 ? "s" : ""}
+                    {filterStates.length} task filter{filterStates.length > 1 ? "s" : ""}
                     <button onClick={() => setFilterStates([])} className="ml-1">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {filterEventStates.length > 0 && (
+                  <Badge variant="secondary" className="gap-1">
+                    {filterEventStates.length} event filter{filterEventStates.length > 1 ? "s" : ""}
+                    <button onClick={() => setFilterEventStates([])} className="ml-1">
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>

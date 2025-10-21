@@ -267,7 +267,7 @@ export default function App() {
     }
   };
 
-  const addEvent = (
+  const addEvent = async (
     content: string,
     date: Date,
     eventTime?: string,
@@ -277,21 +277,49 @@ export default function App() {
     isRecurring?: boolean,
     recurringPattern?: string
   ) => {
-    const newEntry: BulletEntryData = {
-      id: crypto.randomUUID(),
-      date: date.toISOString(),
-      type: "event",
-      content,
-      state: "incomplete",
-      eventState: "upcoming",
-      eventTime,
-      eventEndTime,
-      isAllDay,
-      eventCategory,
-      isRecurring,
-      recurringPattern,
-    };
-    setEntries([...entries, newEntry]);
+    try {
+      // Format date to YYYY-MM-DD in local timezone to avoid UTC conversion issues
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      const dateString = `${year}-${month}-${day}`;
+
+      const newEntry = await createEntry({
+        date: dateString,
+        type: "event",
+        content,
+        state: "incomplete",
+        eventState: "upcoming",
+        eventTime,
+        eventEndTime,
+        isAllDay,
+        eventCategory,
+        isRecurring,
+        recurringPattern,
+      });
+
+      setEntries([...entries, {
+        id: newEntry.id,
+        date: newEntry.entry_date,
+        type: newEntry.entry_type as EntryType,
+        content: newEntry.content,
+        state: newEntry.state as any,
+        eventState: newEntry.event_state as any,
+        eventTime: newEntry.event_time || undefined,
+        eventEndTime: newEntry.event_end_time || undefined,
+        isAllDay: newEntry.is_all_day || undefined,
+        eventCategory: newEntry.event_category as EventCategory || undefined,
+        isRecurring: newEntry.is_recurring || undefined,
+        recurringPattern: newEntry.recurring_pattern || undefined,
+        migrationCount: newEntry.migration_count || undefined,
+        signifiers: newEntry.signifiers || undefined,
+      }]);
+
+      toast.success("Event added successfully!");
+    } catch (error) {
+      console.error("Error adding event:", error);
+      toast.error("Failed to add event. Please try again.");
+    }
   };
 
   const updateEntryLocal = async (id: string, updates: Partial<BulletEntryData>) => {
