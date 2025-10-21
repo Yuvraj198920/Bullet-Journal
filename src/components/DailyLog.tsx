@@ -4,8 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { ChevronLeft, ChevronRight, Search, Filter, X, Clock } from "lucide-react";
-import { AddEntryDialog } from "./AddEntryDialog";
+import { AddTaskDialog } from "./AddTaskDialog";
 import { AddEventDialog } from "./AddEventDialog";
+import { AddNoteDialog } from "./AddNoteDialog";
 import { DailyMigrationDialog } from "./DailyMigrationDialog";
 import {
   DropdownMenu,
@@ -390,6 +391,7 @@ export function DailyLog({
                       entry={entry}
                       onUpdate={onUpdateEntry}
                       onDelete={onDeleteEntry}
+                      onSchedule={onScheduleTask}
                       currentDate={currentDate}
                     />
                   ))}
@@ -429,11 +431,12 @@ export function DailyLog({
           )}
 
           <div className="pt-4">
-            <div className="flex gap-2" id="add-entry-button">
-              <AddEntryDialog onAdd={onAddEntry} defaultDate={currentDate} />
+            <div className="flex gap-2 flex-wrap" id="add-entry-button">
+              <AddTaskDialog onAdd={onAddEntry} defaultDate={currentDate} />
               {onAddEvent && (
                 <AddEventDialog onAdd={onAddEvent} defaultDate={currentDate} />
               )}
+              <AddNoteDialog onAdd={onAddEntry} defaultDate={currentDate} />
             </div>
           </div>
           
