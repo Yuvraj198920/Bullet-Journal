@@ -11,6 +11,7 @@ import {
 } from "./ui/dropdown-menu";
 import { SwipeableEntry } from "./SwipeableEntry";
 import { useIsMobile } from "./ui/use-mobile";
+import { RescheduleDialog } from "./RescheduleDialog";
 
 export type EntryType = "task" | "event" | "note";
 export type TaskState = "incomplete" | "complete" | "migrated" | "scheduled" | "cancelled";
@@ -46,6 +47,7 @@ interface BulletEntryProps {
 
 export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEntryProps) {
   const isMobile = useIsMobile();
+  const [rescheduleEventDialogOpen, setRescheduleEventDialogOpen] = useState(false);
 
   const isPastEvent = () => {
     if (entry.type !== "event") return false;
@@ -378,16 +380,42 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
   // Wrap with swipeable on mobile
   if (isMobile && entry.type !== "note") {
     return (
-      <SwipeableEntry
-        onSwipeRight={handleSwipeComplete}
-        onSwipeLeft={handleSwipeDelete}
-        rightAction={entry.type === "task" ? "complete" : "check"}
-        leftAction="cancel"
-      >
-        {entryContent}
-      </SwipeableEntry>
+      <>
+        <SwipeableEntry
+          onSwipeRight={handleSwipeComplete}
+          onSwipeLeft={handleSwipeDelete}
+          rightAction={entry.type === "task" ? "complete" : "check"}
+          leftAction="cancel"
+        >
+          {entryContent}
+        </SwipeableEntry>
+        
+        {entry.type === "event" && (
+          <RescheduleDialog
+            open={rescheduleEventDialogOpen}
+            onOpenChange={setRescheduleEventDialogOpen}
+            onReschedule={handleEventReschedule}
+            currentDate={entry.date}
+            entryContent={entry.content}
+          />
+        )}
+      </>
     );
   }
 
-  return entryContent;
+  return (
+    <>
+      {entryContent}
+      
+      {entry.type === "event" && (
+        <RescheduleDialog
+          open={rescheduleEventDialogOpen}
+          onOpenChange={setRescheduleEventDialogOpen}
+          onReschedule={handleEventReschedule}
+          currentDate={entry.date}
+          entryContent={entry.content}
+        />
+      )}
+    </>
+  );
 }
