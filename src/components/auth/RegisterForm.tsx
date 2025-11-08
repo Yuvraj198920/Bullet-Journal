@@ -1,63 +1,113 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
 import { Alert, AlertDescription } from "../ui/alert";
 import { Loader2, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "../ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 
 interface RegisterFormProps {
   onRegister: (email: string, password: string, name: string) => Promise<void>;
   onSwitchToLogin: () => void;
 }
 
+const TermsOfService = () => (
+  <div className="p-4 text-sm">
+    <h4 className="font-bold mb-2">Terms of Service</h4>
+    <p>By creating an account, you agree to our terms and conditions. Please read them carefully.</p>
+    <ul className="list-disc list-inside mt-2 space-y-1">
+      <li>You must be at least 13 years old to use this service.</li>
+      <li>You are responsible for maintaining the security of your account.</li>
+      <li>We reserve the right to terminate accounts that violate our policies.</li>
+    </ul>
+  </div>
+);
+
+const PrivacyPolicy = () => (
+  <div className="p-4 text-sm">
+    <h4 className="font-bold mb-2">Privacy Policy</h4>
+    <p>We are committed to protecting your privacy. Here’s how we handle your data:</p>
+    <ul className="list-disc list-inside mt-2 space-y-1">
+      <li>We collect your name and email for authentication purposes only.</li>
+      <li>We do not share your personal information with third parties.</li>
+      <li>All your journal data is encrypted and stored securely.</li>
+    </ul>
+  </div>
+);
+
+
 export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState("");
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  const [errors, setErrors] = useState({
+    name: "",
+    email: "",
+    password: "",
+    confirmPassword: "",
+    form: "",
+  });
+
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const validatePassword = (pwd: string): string | null => {
-    if (pwd.length < 8) {
-      return "Password must be at least 8 characters long";
+  const passwordRequirements = useMemo(() => [
+    { regex: /.{8,}/, text: "At least 8 characters" },
+    { regex: /[A-Z]/, text: "At least one uppercase letter" },
+    { regex: /[a-z]/, text: "At least one lowercase letter" },
+    { regex: /[0-9]/, text: "At least one number" },
+    { regex: /[!@#$%^&*(),.?":{}|<>]/, text: "At least one special character" },
+  ], []);
+
+  const validateField = (field: string, value: string) => {
+    let error = "";
+    switch (field) {
+      case "name":
+        if (!value.trim()) error = "Please enter your name";
+        break;
+      case "email":
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+          error = "Please enter a valid email address";
+        }
+        break;
+      case "password":
+        const unmetRequirements = passwordRequirements
+          .filter(req => !req.regex.test(value))
+          .map(req => req.text);
+        if (unmetRequirements.length > 0) {
+          error = `Password must contain: ${unmetRequirements.join(', ')}`;
+        }
+        break;
+      case "confirmPassword":
+        if (password !== value) error = "Passwords do not match";
+        break;
+      default:
+        break;
     }
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(pwd)) {
-      return "Password must contain at least one special character";
-    }
-    if (!/[A-Z]/.test(pwd)) {
-      return "Password must contain at least one uppercase letter";
-    }
-    if (!/[a-z]/.test(pwd)) {
-      return "Password must contain at least one lowercase letter";
-    }
-    if (!/[0-9]/.test(pwd)) {
-      return "Password must contain at least one number";
-    }
-    return null;
+    setErrors(prev => ({ ...prev, [field]: error }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
+    setErrors(prev => ({ ...prev, form: "" }));
     setSuccess(false);
 
-    // Validation
-    if (!name.trim()) {
-      setError("Please enter your name");
-      return;
-    }
+    // Re-validate all fields on submit
+    validateField("name", name);
+    validateField("email", email);
+    validateField("password", password);
+    validateField("confirmPassword", confirmPassword);
 
-    const passwordError = validatePassword(password);
-    if (passwordError) {
-      setError(passwordError);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setError("Passwords do not match");
+    const hasErrors = Object.values(errors).some(error => error !== "");
+    if (hasErrors || !agreedToTerms) {
+      if (!agreedToTerms) {
+        setErrors(prev => ({ ...prev, form: "You must agree to the terms to continue." }));
+      }
       return;
     }
 
@@ -70,8 +120,9 @@ export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps)
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+      setAgreedToTerms(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create account");
+      setErrors(prev => ({ ...prev, form: err instanceof Error ? err.message : "Failed to create account" }));
     } finally {
       setLoading(false);
     }
@@ -118,9 +169,9 @@ export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps)
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
-          {error && (
+          {errors.form && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{errors.form}</AlertDescription>
             </Alert>
           )}
 
@@ -132,9 +183,12 @@ export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps)
               placeholder="John Doe"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              onBlur={(e) => validateField("name", e.target.value)}
               required
               disabled={loading}
+              className={errors.name ? "border-destructive" : ""}
             />
+            {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
           </div>
           
           <div className="space-y-2">
@@ -145,9 +199,12 @@ export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps)
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={(e) => validateField("email", e.target.value)}
               required
               disabled={loading}
+              className={errors.email ? "border-destructive" : ""}
             />
+            {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
           </div>
 
           <div className="space-y-2">
@@ -157,13 +214,26 @@ export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps)
               type="password"
               placeholder="••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                validateField("password", e.target.value);
+              }}
               required
               disabled={loading}
+              className={errors.password ? "border-destructive" : ""}
             />
-            <p className="text-xs text-muted-foreground">
-              Min 8 characters, uppercase, lowercase, number & special character
-            </p>
+            {errors.password ? (
+              <p className="text-xs text-destructive">{errors.password}</p>
+            ) : (
+              <div className="text-xs text-muted-foreground space-y-1 mt-2">
+                {passwordRequirements.map(req => (
+                  <div key={req.text} className={`flex items-center transition-colors ${req.regex.test(password) ? 'text-green-600' : 'text-muted-foreground'}`}>
+                    <CheckCircle2 className="h-3 w-3 mr-1.5" />
+                    <span>{req.text}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -174,14 +244,44 @@ export function RegisterForm({ onRegister, onSwitchToLogin }: RegisterFormProps)
               placeholder="••••••••"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              onBlur={(e) => validateField("confirmPassword", e.target.value)}
               required
               disabled={loading}
+              className={errors.confirmPassword ? "border-destructive" : ""}
             />
+            {errors.confirmPassword && <p className="text-xs text-destructive">{errors.confirmPassword}</p>}
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox id="terms" checked={agreedToTerms} onCheckedChange={(checked) => setAgreedToTerms(checked as boolean)} />
+            <label
+              htmlFor="terms"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              I agree to the{" "}
+              <Popover>
+                <PopoverTrigger>
+                  <Button variant="link" className="p-0 h-auto">Terms of Service</Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <TermsOfService />
+                </PopoverContent>
+              </Popover>
+              {" "}and{" "}
+              <Popover>
+                <PopoverTrigger>
+                  <Button variant="link" className="p-0 h-auto">Privacy Policy</Button>
+                </PopoverTrigger>
+                <PopoverContent>
+                  <PrivacyPolicy />
+                </PopoverContent>
+              </Popover>
+            </label>
           </div>
         </CardContent>
 
         <CardFooter className="flex flex-col gap-3">
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading || !agreedToTerms}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Create Account
           </Button>

@@ -69,16 +69,38 @@ export function HabitsTracker({
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    for (let i = 0; i < 365; i++) {
-      const checkDate = new Date(today);
-      checkDate.setDate(checkDate.getDate() - i);
-      const dateStr = checkDate.toISOString().split("T")[0];
+    // Create a set of completed dates for fast lookups
+    const completedDates = new Set(
+      habit.completions.filter(c => c.completed).map(c => c.date)
+    );
 
-      const completion = habit.completions.find((c) => c.date === dateStr);
-      if (completion?.completed) {
+    // The streak can only start from today or yesterday.
+    let startDate = new Date(today);
+    const todayStr = startDate.toISOString().split("T")[0];
+
+    if (!completedDates.has(todayStr)) {
+      // If today is not completed, check yesterday.
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      yesterday.setHours(0, 0, 0, 0);
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+      
+      if(completedDates.has(yesterdayStr)) {
+        // Streak ended yesterday. Count backwards from there.
+        startDate = yesterday;
+      } else {
+        // Not completed today or yesterday, so streak is 0.
+        return 0;
+      }
+    }
+
+    // Now, count backwards from startDate
+    while (true) {
+      const dateStr = startDate.toISOString().split("T")[0];
+      if (completedDates.has(dateStr)) {
         streak++;
-      } else if (i > 0) {
-        // If not today and not completed, streak broken
+        startDate.setDate(startDate.getDate() - 1);
+      } else {
         break;
       }
     }
@@ -86,11 +108,11 @@ export function HabitsTracker({
     return streak;
   };
 
-  const getCompletionRate = (habit: Habit): number => {
-    if (habit.completions.length === 0) return 0;
-    
-    const completed = habit.completions.filter((c) => c.completed).length;
-    return Math.round((completed / habit.completions.length) * 100);
+  const getCompletionRate = (habit: Habit, days: Date[]): number => {
+    if (days.length === 0) return 0;
+
+    const completedCount = days.filter(day => isCompletedOnDate(habit, day)).length;
+    return Math.round((completedCount / days.length) * 100);
   };
 
   const getCategoryColor = (category: HabitCategory): string => {
@@ -156,7 +178,7 @@ export function HabitsTracker({
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {habits.map((habit) => {
             const streak = getCurrentStreak(habit);
-            const completionRate = getCompletionRate(habit);
+            const completionRate = getCompletionRate(habit, days);
 
             return (
               <Card key={habit.id} className="overflow-hidden">
@@ -253,7 +275,7 @@ export function HabitsTracker({
             <div className="divide-y">
               {habits.map((habit) => {
                 const streak = getCurrentStreak(habit);
-                const completionRate = getCompletionRate(habit);
+                const completionRate = getCompletionRate(habit, days);
 
                 return (
                   <div key={habit.id} className="p-4">
