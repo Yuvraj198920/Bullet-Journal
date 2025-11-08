@@ -13,23 +13,23 @@ export interface User {
 
 // Sign up new user
 export async function signUp(email: string, password: string, name: string): Promise<void> {
-  const response = await fetch(
-    `${supabaseUrl}/functions/v1/make-server-f53d7c3b/signup`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${publicAnonKey}`,
-      },
-      body: JSON.stringify({ email, password, name }),
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: name,
+      }
     }
-  );
+  });
 
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.error || 'Failed to create account');
+  if (error) {
+    throw new Error(error.message || 'Failed to create account');
   }
+
+  // The user is signed up but needs to verify their email.
+  // Supabase handles sending the verification email automatically.
+  // The user will be null in the session until they are verified.
 }
 
 // Sign in user
