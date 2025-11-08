@@ -6,7 +6,7 @@ import { FutureLog } from "./components/FutureLog";
 import { Collections, Collection } from "./components/Collections";
 import { IndexNavigation } from "./components/IndexNavigation";
 import { HabitsTracker, Habit, HabitFrequency, HabitCategory } from "./components/HabitsTracker";
-import { BulletEntryData, EntryType, EventCategory } from "./components/BulletEntry";
+import { BulletEntryData, EntryType, EventCategory, TaskState } from "./components/BulletEntry";
 import { LoginForm } from "./components/auth/LoginForm";
 import { RegisterForm } from "./components/auth/RegisterForm";
 import { PasswordResetForm } from "./components/auth/PasswordResetForm";
@@ -353,7 +353,7 @@ export default function App() {
   const deleteEntryLocal = async (id: string) => {
     try {
       await deleteEntry(id);
-      setEntries(entries.filter((entry) => entry.id !== id));
+      setEntries(entries.filter((entry: { id: string; }) => entry.id !== id));
       toast.success("Entry deleted successfully!");
     } catch (error) {
       console.error("Error deleting entry:", error);
@@ -362,14 +362,14 @@ export default function App() {
   };
 
   const getDailyEntries = () => {
-    return entries.filter((entry) => {
+    return entries.filter((entry: { date: string | number | Date; }) => {
       const entryDate = new Date(entry.date);
       return entryDate.toDateString() === dailyDate.toDateString();
     });
   };
 
   const getMonthlyEntries = () => {
-    return entries.filter((entry) => {
+    return entries.filter((entry: { date: string | number | Date; }) => {
       const entryDate = new Date(entry.date);
       return (
         entryDate.getMonth() === monthlyDate.getMonth() &&
@@ -379,7 +379,7 @@ export default function App() {
   };
 
   const getFutureEntries = () => {
-    return entries.filter((entry) => {
+    return entries.filter((entry: { date: string | number | Date; }) => {
       const entryDate = new Date(entry.date);
       return entryDate.getFullYear() === futureYear;
     });
@@ -424,7 +424,7 @@ export default function App() {
   const deleteCollectionLocal = async (id: string) => {
     try {
       await deleteCollection(id);
-      setCollections(collections.filter((c) => c.id !== id));
+      setCollections(collections.filter((c: { id: string; }) => c.id !== id));
       toast.success("Collection deleted successfully!");
     } catch (error) {
       console.error("Error deleting collection:", error);
@@ -436,7 +436,7 @@ export default function App() {
     try {
       const newItem = await createCollectionItem(collectionId, text);
       setCollections(
-        collections.map((c) =>
+        collections.map((c: { id: string; items: any; }) =>
           c.id === collectionId
             ? {
                 ...c,
@@ -458,7 +458,7 @@ export default function App() {
     try {
       const newCheckedState = await toggleCollectionItem(itemId);
       setCollections(
-        collections.map((c) =>
+        collections.map((c: { id: string; items: any[]; }) =>
           c.id === collectionId
             ? {
                 ...c,
