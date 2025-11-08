@@ -7,30 +7,18 @@ import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Calendar } from "./ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon, Plus } from "lucide-react";
-import { EntryType, EventCategory } from "./BulletEntry";
-import { AddEventDialog } from "./AddEventDialog";
+import { EntryType } from "./BulletEntry";
 
 interface AddEntryDialogProps {
   onAdd: (content: string, type: EntryType, date: Date) => void;
-  onAddEvent?: (
-    content: string,
-    date: Date,
-    eventTime?: string,
-    eventEndTime?: string,
-    isAllDay?: boolean,
-    eventCategory?: EventCategory,
-    isRecurring?: boolean,
-    recurringPattern?: string
-  ) => void;
   defaultDate?: Date;
   trigger?: React.ReactNode;
 }
 
 const MAX_CHARS = 500;
 
-export function AddEntryDialog({ onAdd, onAddEvent, defaultDate, trigger }: AddEntryDialogProps) {
+export function AddEntryDialog({ onAdd, defaultDate, trigger }: AddEntryDialogProps) {
   const [open, setOpen] = useState(false);
-  const [showEventDialog, setShowEventDialog] = useState(false);
   const [content, setContent] = useState("");
   const [type, setType] = useState<EntryType>("task");
   const [date, setDate] = useState<Date>(defaultDate || new Date());
@@ -40,42 +28,16 @@ export function AddEntryDialog({ onAdd, onAddEvent, defaultDate, trigger }: AddE
 
   const handleSubmit = () => {
     if (content.trim()) {
-      if (type === "event" && onAddEvent) {
-        // Close this dialog and show event dialog
-        setOpen(false);
-        setShowEventDialog(true);
-      } else {
-        onAdd(content, type, date);
-        setContent("");
-        setType("task");
-        setDate(defaultDate || new Date());
-        setOpen(false);
-      }
+      onAdd(content, type, date);
+      setContent("");
+      setType("task");
+      setDate(defaultDate || new Date());
+      setOpen(false);
     }
-  };
-
-  const handleEventAdd = (
-    eventContent: string,
-    eventDate: Date,
-    eventTime?: string,
-    eventEndTime?: string,
-    isAllDay?: boolean,
-    eventCategory?: EventCategory,
-    isRecurring?: boolean,
-    recurringPattern?: string
-  ) => {
-    if (onAddEvent) {
-      onAddEvent(eventContent, eventDate, eventTime, eventEndTime, isAllDay, eventCategory, isRecurring, recurringPattern);
-    }
-    setContent("");
-    setType("task");
-    setDate(defaultDate || new Date());
-    setShowEventDialog(false);
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
           {trigger || (
             <Button>
@@ -88,7 +50,7 @@ export function AddEntryDialog({ onAdd, onAddEvent, defaultDate, trigger }: AddE
         <DialogHeader>
           <DialogTitle>Add New Entry</DialogTitle>
           <DialogDescription>
-            Create a new task, event, or note for your bullet journal.
+            Create a new task or note for your bullet journal.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
@@ -98,13 +60,6 @@ export function AddEntryDialog({ onAdd, onAddEvent, defaultDate, trigger }: AddE
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="task" id="task" />
                 <Label htmlFor="task">Task - Action item to complete</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="event" id="event" />
-                <Label htmlFor="event">
-                  Event - Time-specific occurrence
-                  {onAddEvent && <span className="text-xs text-muted-foreground ml-2">(Advanced options available)</span>}
-                </Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="note" id="note" />
@@ -142,7 +97,7 @@ export function AddEntryDialog({ onAdd, onAddEvent, defaultDate, trigger }: AddE
                   setContent(e.target.value);
                 }
               }}
-              placeholder="Enter your task, event, or note..."
+              placeholder="Enter your task or note..."
               rows={3}
               onKeyDown={(e) => {
                 if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
@@ -165,15 +120,5 @@ export function AddEntryDialog({ onAdd, onAddEvent, defaultDate, trigger }: AddE
         </div>
       </DialogContent>
     </Dialog>
-
-    {/* Event Dialog with advanced options */}
-    {onAddEvent && (
-      <AddEventDialog
-        onAdd={handleEventAdd}
-        defaultDate={date}
-        trigger={null}
-      />
-    )}
-    </>
   );
 }

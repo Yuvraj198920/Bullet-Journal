@@ -11,6 +11,7 @@ import {
 } from "./ui/dropdown-menu";
 import { SwipeableEntry } from "./SwipeableEntry";
 import { useIsMobile } from "./ui/use-mobile";
+import { RescheduleDialog } from "./RescheduleDialog";
 
 export type EntryType = "task" | "event" | "note";
 export type TaskState = "incomplete" | "complete" | "migrated" | "scheduled" | "cancelled";
@@ -41,11 +42,14 @@ interface BulletEntryProps {
   entry: BulletEntryData;
   onUpdate: (id: string, updates: Partial<BulletEntryData>) => void;
   onDelete: (id: string) => void;
+  onSchedule?: (taskId: string, targetDate: Date) => void;
   currentDate?: Date;
 }
 
-export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEntryProps) {
+export function BulletEntry({ entry, onUpdate, onDelete, onSchedule, currentDate }: BulletEntryProps) {
   const isMobile = useIsMobile();
+  const [rescheduleEventDialogOpen, setRescheduleEventDialogOpen] = useState(false);
+  const [scheduleTaskDialogOpen, setScheduleTaskDialogOpen] = useState(false);
 
   const isPastEvent = () => {
     if (entry.type !== "event") return false;
@@ -195,6 +199,12 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
     });
   };
 
+  const handleTaskSchedule = (targetDate: Date) => {
+    if (onSchedule) {
+      onSchedule(entry.id, targetDate);
+    }
+  };
+
   const getSignifierIcon = (signifier: Signifier) => {
     switch (signifier) {
       case "priority":
@@ -283,6 +293,11 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
                     {entry.eventCategory}
                   </Badge>
                 )}
+                {entry.eventState === "attended" && (
+                  <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">
+                    Attended
+                  </Badge>
+                )}
                 {entry.eventState === "missed" && (
                   <Badge variant="destructive" className="text-xs">
                     Missed
@@ -316,6 +331,10 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
               <DropdownMenuItem onClick={handleMigrate}>
                 <ChevronRight className="h-4 w-4 mr-2" />
                 Migrate to Next Day
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setScheduleTaskDialogOpen(true)}>
+                <CalendarIcon className="h-4 w-4 mr-2" />
+                Schedule Task
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onUpdate(entry.id, { state: "cancelled" })}>
                 <X className="h-4 w-4 mr-2" />
@@ -373,16 +392,52 @@ export function BulletEntry({ entry, onUpdate, onDelete, currentDate }: BulletEn
   // Wrap with swipeable on mobile
   if (isMobile && entry.type !== "note") {
     return (
-      <SwipeableEntry
-        onSwipeRight={handleSwipeComplete}
-        onSwipeLeft={handleSwipeDelete}
-        rightAction={entry.type === "task" ? "complete" : "check"}
-        leftAction="cancel"
-      >
-        {entryContent}
-      </SwipeableEntry>
+      <>
+        <SwipeableEntry
+          onSwipeRight={handleSwipeComplete}
+          onSwipeLeft={handleSwipeDelete}
+          rightAction={entry.type === "task" ? "complete" : "check"}
+          leftAction="cancel"
+        >
+          {entryContent}
+        </SwipeableEntry>
+        
+        {entry.type === "event" && (
+          <RescheduleDialog
+            open={rescheduleEventDialogOpen}
+            onOpenChange={setRescheduleEventDialogOpen}
+            onReschedule={handleEventReschedule}
+            currentDate={entry.date}
+            entryContent={entry.content}
+          />
+        )}
+      </>
     );
   }
 
-  return entryContent;
+  return (
+    <>
+      {entryContent}
+      
+      {entry.type === "event" && (
+        <RescheduleDialog
+          open={rescheduleEventDialogOpen}
+          onOpenChange={setRescheduleEventDialogOpen}
+          onReschedule={handleEventReschedule}
+          currentDate={entry.date}
+          entryContent={entry.content}
+        />
+      )}
+      
+      {entry.type === "task" && (
+        <RescheduleDialog
+          open={scheduleTaskDialogOpen}
+          onOpenChange={setScheduleTaskDialogOpen}
+          onReschedule={handleTaskSchedule}
+          currentDate={entry.date}
+          entryContent={entry.content}
+        />
+      )}
+    </>
+  );
 }
