@@ -326,7 +326,7 @@ export function BulletEntry({ entry, onUpdate, onDelete, onSchedule, currentDate
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          {entry.type === "task" && (
+          {entry.type === "task" && entry.state !== "complete" && (
             <>
               <DropdownMenuItem onClick={handleMigrate}>
                 <ChevronRight className="h-4 w-4 mr-2" />
@@ -347,7 +347,7 @@ export function BulletEntry({ entry, onUpdate, onDelete, onSchedule, currentDate
             </>
           )}
           
-          {entry.type === "event" && (
+          {entry.type === "event" && entry.eventState !== "attended" && (
             <>
               <DropdownMenuItem onClick={() => onUpdate(entry.id, { eventState: "attended" })}>
                 <CircleDot className="h-4 w-4 mr-2" />

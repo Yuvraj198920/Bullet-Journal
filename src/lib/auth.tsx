@@ -12,7 +12,7 @@ export interface User {
 }
 
 // Sign up new user
-export async function signUp(email: string, password: string, name: string): Promise<void> {
+export async function signUp(email: string, password: string, name: string): Promise<any> {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
@@ -24,12 +24,27 @@ export async function signUp(email: string, password: string, name: string): Pro
   });
 
   if (error) {
+    if (error.message === 'User already registered') {
+      throw new Error('User account already exists. Please sign in.');
+    }
     throw new Error(error.message || 'Failed to create account');
   }
 
-  // The user is signed up but needs to verify their email.
-  // Supabase handles sending the verification email automatically.
-  // The user will be null in the session until they are verified.
+  if (data.user && data.user.identities && data.user.identities.length > 0 && !data.session) {
+    throw new Error('User account already exists. Please sign in.');
+  }
+
+  if (data.user && data.session) {
+    const createdAt = new Date(data.user.created_at).getTime();
+    const lastSignInAt = data.user.last_sign_in_at ? new Date(data.user.last_sign_in_at).getTime() : createdAt;
+
+    if (lastSignInAt - createdAt > 1000) { // 1 second tolerance
+      await supabase.auth.signOut();
+      throw new Error('User account already exists. Please sign in.');
+    }
+  }
+
+  return { data, error };
 }
 
 // Sign in user
